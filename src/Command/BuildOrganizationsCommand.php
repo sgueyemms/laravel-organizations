@@ -30,7 +30,9 @@ use Mms\Admin\Admin;
 use Mms\Admin\Pool;
 use Faker\Factory as FakerFactory;
 use Mms\Laravel\Eloquent\BlameableUser;
+use Mms\Laravel\Eloquent\ModelManager;
 use Mms\MultiTenancy\Tenant\RequestTenantProvider;
+use Mms\Organizations\OrganizationManager;
 use Symfony\Component\Security\Acl\Permission\MaskBuilder;
 use Symfony\Component\Security\Acl\Domain\ObjectIdentity;
 use Symfony\Component\Security\Acl\Domain\UserSecurityIdentity;
@@ -39,11 +41,26 @@ use Symfony\Component\Security\Acl\Model\MutableAclProviderInterface;
 class BuildOrganizationsCommand extends Command
 {
     /**
+     * @var ModelManager
+     */
+    private $manager;
+    /**
+     * @var OrganizationManager
+     */
+    private $organizationManager;
+    public function __construct(ModelManager $manager, OrganizationManager $organizationManager)
+    {
+        parent::__construct();
+        $this->manager             = $manager;
+        $this->organizationManager = $organizationManager;
+    }
+
+    /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'app:build-organizations {type} {--opt1=} {--opt2=}';
+    protected $signature = 'mms:organizations:init {type?} {--opt1=} {--opt2=}';
 
     /**
      * The console command description.
@@ -53,21 +70,23 @@ class BuildOrganizationsCommand extends Command
     protected $description = 'Builds organizations out of administrative entities';
 
     /**
-     *
-     * @return \Mms\Laravel\Eloquent\ModelManager
-     */
-    private function getModelManager()
-    {
-        return app('mms.eloquent.model_manager');
-    }
-
-    /**
      * Execute the console command.
      *
-     * @return mixed
      */
     public function handle()
     {
-
+        $models = $this->organizationManager->getConfiguration();
+        $arguments = $this->input->getArgument('type');
+        if(!$arguments || $arguments == '_') {
+            $codes = array_keys($models);
+        } else {
+            $codes = array_map('trim', explode(',', $arguments));
+        }
+        foreach ($codes as $code) {
+            $modelClass = $this->organizationManager->getModelClass($code);
+            foreach ($this->manager->getModelRepository($modelClass)->findAll() as $instance) {
+                $this->organizationManager->create($instance);
+            }
+        }
     }
 }

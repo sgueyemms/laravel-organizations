@@ -4,6 +4,7 @@ namespace Mms\Organizations;
 
 use Illuminate\Container\Container;
 use Illuminate\Support\ServiceProvider as BaseServiceProvider;
+use Mms\Laravel\Eloquent\ModelManager;
 
 /**
  * Description of ServiceProvider
@@ -33,19 +34,26 @@ class ServiceProvider extends BaseServiceProvider
     public function register()
     {
         $this->mergeConfigFrom(
-            __DIR__.'/../config/config.php', 'organizations'
+            __DIR__.'/../config/config.php', 'mms_organizations'
         );
 
-
+        $this->app->bind(OrganizationManager::class, $this->app->share(function (Container $app) {
+            return new OrganizationManager(
+                $app->make(ModelManager::class),
+                $app['config']->get('mms_organizations.model_class'),
+                $app['config']->get('mms_organizations.model_type_class'),
+                $app['config']->get('mms_organizations.models')
+            );
+        }));
 
         $this->registerCommands();
 
     }
     protected function registerCommands()
     {
-        $this->app->singleton('mms.multi-tenancy.event-registration', function(Container $app) {
-            return $app->make(Command\GenerateModelEventRegistration::class);
+        $this->app->singleton('mms.organizations.init', function(Container $app) {
+            return $app->make(Command\BuildOrganizationsCommand::class);
         });
-        $this->commands('mms.multi-tenancy.event-registration');
+        $this->commands('mms.organizations.init');
     }
 }

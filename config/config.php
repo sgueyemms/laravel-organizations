@@ -1,5 +1,9 @@
 <?php
 
 return [
-    'event_registration_path' => config_path('mms_multi_tenancy_registration.php')
+    'model_class' => 'App\Models\Organization',
+    'model_type_class' => 'App\Models\OrganizationType',
+    'models' => [
+
+    ],
 ];
