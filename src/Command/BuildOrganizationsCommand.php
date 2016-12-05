@@ -16,6 +16,7 @@ use App\Models\Project;
 use App\Models\Role;
 use App\Models\Tag;
 use App\Models\User;
+use App\Models\Year;
 use App\Repositories\RoleRepository;
 use App\Repositories\UserRepository;
 use ICanBoogie\Inflector;
@@ -60,7 +61,7 @@ class BuildOrganizationsCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'mms:organizations:init {type?} {--opt1=} {--opt2=}';
+    protected $signature = 'mms:organizations:init {year} {type?} {--opt1=} {--opt2=}';
 
     /**
      * The console command description.
@@ -76,6 +77,7 @@ class BuildOrganizationsCommand extends Command
     public function handle()
     {
         $models = $this->organizationManager->getConfiguration();
+        $year = $this->manager->getModelRepository(Year::class)->findByCode($this->input->getArgument('year'));
         $arguments = $this->input->getArgument('type');
         if(!$arguments || $arguments == '_') {
             $codes = array_keys($models);
@@ -85,7 +87,7 @@ class BuildOrganizationsCommand extends Command
         foreach ($codes as $code) {
             $modelClass = $this->organizationManager->getModelClass($code);
             foreach ($this->manager->getModelRepository($modelClass)->findAll() as $instance) {
-                $this->organizationManager->create($instance);
+                $this->organizationManager->create($year, $instance);
             }
         }
     }

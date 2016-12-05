@@ -12,6 +12,8 @@ namespace Mms\Organizations;
 use App\Models\Organization;
 use Mms\Laravel\Eloquent\BaseModel;
 use Mms\Laravel\Eloquent\ModelManager;
+use Mms\Organizations\Eloquent\OrganizationInterface;
+use Mms\Organizations\Eloquent\YearInterface;
 
 class OrganizationManager
 {
@@ -84,11 +86,15 @@ class OrganizationManager
      * @param BaseModel $instance
      * @return Organization|\Illuminate\Database\Eloquent\Model
      */
-    public function create(BaseModel $instance)
+    public function create(YearInterface $year, BaseModel $instance)
     {
         $configEntry = $this->getInstanceConfig($instance);
         $organizationType = $this->getOrganizationType($configEntry['code']);
+        /**
+         * @var OrganizationInterface $organization
+         */
         $organization = $this->manager->create($this->modelClass);
+        $organization->processYear($year);
         /**
          * @var Organization $organization
          */
