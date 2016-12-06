@@ -42,7 +42,8 @@ class ServiceProvider extends BaseServiceProvider
                 $app->make(ModelManager::class),
                 $app['config']->get('mms_organizations.model_class'),
                 $app['config']->get('mms_organizations.model_type_class'),
-                $app['config']->get('mms_organizations.models')
+                $app['config']->get('mms_organizations.models'),
+                $app['config']->get('mms_organizations.hierarchies')
             );
         }));
 
@@ -55,5 +56,10 @@ class ServiceProvider extends BaseServiceProvider
             return $app->make(Command\BuildOrganizationsCommand::class);
         });
         $this->commands('mms.organizations.init');
+
+        $this->app->singleton('mms.organizations.hierarchy', function(Container $app) {
+            return $app->make(Command\BuildOrganizationsHierarchyCommand::class);
+        });
+        $this->commands('mms.organizations.hierarchy');
     }
 }

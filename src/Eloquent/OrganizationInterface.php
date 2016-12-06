@@ -12,4 +12,20 @@ namespace Mms\Organizations\Eloquent;
 interface OrganizationInterface
 {
     public function processYear(YearInterface $year);
+
+    /**
+     * @return int
+     */
+    public function getReferenceIdentifier();
+
+    /**
+     * @return mixed
+     */
+    public function getReference();
+
+    /**
+     * @param mixed $reference
+     */
+    public function setReference($reference);
+
 }
