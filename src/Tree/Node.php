@@ -9,7 +9,7 @@
 namespace Mms\Organizations\Tree;
 
 
-use App\Models\OrganizationHierarchy;
+use App\Models\OrganizationRelationship;
 use Tree\Node\Node as TreeNode;
 
 
@@ -17,15 +17,15 @@ class Node extends TreeNode
 {
     /**
      * Node constructor.
-     * @param OrganizationHierarchy $organizationRelationship
+     * @param OrganizationRelationship $organizationRelationship
      */
-    public function __construct(OrganizationHierarchy $organizationRelationship)
+    public function __construct(OrganizationRelationship $organizationRelationship)
     {
         parent::__construct($organizationRelationship);
     }
 
     /**
-     * @return OrganizationHierarchy
+     * @return OrganizationRelationship
      */
     public function getValue()
     {

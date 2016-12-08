@@ -10,7 +10,7 @@ namespace Mms\Organizations;
 
 
 use App\Models\Organization;
-use App\Models\OrganizationHierarchy;
+use App\Models\OrganizationRelationship;
 use App\Models\OrganizationType;
 use Illuminate\Database\Eloquent\Model;
 use Mms\Laravel\Eloquent\BaseModel;
@@ -219,10 +219,10 @@ class OrganizationManager
     }
 
     /**
-     * @param OrganizationHierarchy $node
+     * @param OrganizationRelationship $node
      * @param OrganizationInterface|Model $organization
      */
-    private function processHierarchy(OrganizationHierarchy $node, OrganizationInterface $organization, $nodeBuilder)
+    private function processHierarchy(OrganizationRelationship $node, OrganizationInterface $organization, $nodeBuilder)
     {
         $this->loadReference($organization);
         $config = $this->getInstanceConfig($organization->getReference());
@@ -244,7 +244,7 @@ class OrganizationManager
     public function buildHierarchy(OrganizationInterface $organization)
     {
         $nodeBuilder = function ($organization) {
-            $node = new OrganizationHierarchy();
+            $node = new OrganizationRelationship();
             $node->organization_id = $organization->id;
             $node->save();
             return $node;
@@ -255,19 +255,19 @@ class OrganizationManager
 
     public function findRoot(OrganizationInterface $organization)
     {
-        $queryBuilder = OrganizationHierarchy::roots();
+        $queryBuilder = OrganizationRelationship::roots();
         $queryBuilder->where('organization_id', '=', $organization->getIdentifier());
         return $queryBuilder->get()->first();
     }
 
     public function getOrganizationBranches(OrganizationInterface $organization)
     {
-        $queryBuilder = $this->manager->createQueryBuilder(OrganizationHierarchy::class);
+        $queryBuilder = $this->manager->createQueryBuilder(OrganizationRelationship::class);
         $queryBuilder->where('organization_id', '=', $organization->getIdentifier());
         $branches = [];
         foreach ($queryBuilder->get() as $setNode) {
             /**
-             * @var OrganizationHierarchy $setNode
+             * @var OrganizationRelationship $setNode
              */
             $branches[] = [
                 'node' => $this->buildRelationshipTree($setNode),
@@ -298,7 +298,7 @@ class OrganizationManager
         return $this->processPrettyPrint($tree, [], 0, $indent ?: '  ');
     }
 
-    public function buildRelationshipTree(OrganizationHierarchy $setNode)
+    public function buildRelationshipTree(OrganizationRelationship $setNode)
     {
         $tree = new TreeNode($setNode);
         foreach ($setNode->children as $setChildNode) {
