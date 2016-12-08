@@ -68,15 +68,26 @@ class OrganizationRelationshipType extends BaseElementType
         /**
          * @var Organization $item
          */
-        $branches = $manager->getOrganizationBranches($item);
-        /**
-         * @var Node $tree
-         */
-        $tree = $branches[0]['node'];
-        $view->vars['value'] = $tree->accept($view->vars['visitor']);
-        $view->vars['tree_options']['attr']['data-mms-handler'] = 'y';
-        $view->vars['tree_options']['attr']['data-mms-service-name'] = 'tree';
-        $view->vars['tree_options']['attr']['data-data'] = json_encode([$view->vars['value']]);
+        $branches = [];
+        foreach ($manager->getOrganizationBranches($item) as $branch) {
+            /**
+             * @var Node $tree
+             */
+            $tree = $branch['node'];
+            $data = $tree->accept($view->vars['visitor']);
+            $branches[$tree->getValue()->id] = [
+                'tree' => [
+                    'attr' => [
+                        'data-mms-handler' => 'y',
+                        'data-mms-service-name' => 'tree',
+                        'data-data' => json_encode([$data])
+                    ]
+                ],
+                'path' => $branch['path']
+            ];
+        }
+        $view->vars['value'] = $branches;
+        $view->vars['branches'] = $branches;
     }
 
 }

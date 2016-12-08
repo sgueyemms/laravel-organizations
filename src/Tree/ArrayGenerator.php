@@ -23,6 +23,8 @@ class ArrayGenerator
             'name' => $node->getValue()->organization."",
             'id' => $node->getValue()->id,
             'is_leaf' => $node->isLeaf(),
+            'organization_id' => $node->getValue()->organization->id,
+            'organization_type_id' => $node->getValue()->organization->organization_type_id,
             'children' => []
         ];
     }

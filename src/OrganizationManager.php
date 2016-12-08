@@ -188,6 +188,29 @@ class OrganizationManager
         }
         return $organization;
     }
+
+    /**
+     * Finds an organization by its code and a year
+     *
+     * It uses a left join with all tables that implement the organization (using organization types).
+     * @param YearInterface $year
+     * @param string $code
+     * @return OrganizationInterface
+     */
+    public function findOrganizationByCode(YearInterface $year, $code)
+    {
+        $criteria = [
+            'year_id' => $year->id,
+            'reference_id' => $instance->id,
+            'organization_type_id' => $this->getInstanceReferenceType($instance)->id
+        ];
+        $queryBuilder = $this->manager->createQueryBuilder(Organization::class);
+        foreach ($this->config['models'] as $organizationTypeCode => $configEntry) {
+            $metadata = $this->manager->getModelMetadata($configEntry['model']);
+            //$queryBuilder->leftJoin()
+        }
+        throw new \Exception("Not implemented yet");
+    }
     public function has(BaseModel $instance)
     {
         $configEntry = $this->getInstanceConfig($instance);
@@ -248,7 +271,10 @@ class OrganizationManager
              */
             $branches[] = [
                 'node' => $this->buildRelationshipTree($setNode),
-                'path' => []
+                'path' => array_map(
+                    function($node) { return $node->organization->getExtendedLabel(); },
+                    $setNode->getAncestors()->all()
+                )
             ];
         };
         return $branches;
