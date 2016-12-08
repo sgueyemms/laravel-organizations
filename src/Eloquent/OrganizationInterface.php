@@ -16,6 +16,10 @@ interface OrganizationInterface
     /**
      * @return int
      */
+    public function getIdentifier();
+    /**
+     * @return int
+     */
     public function getReferenceIdentifier();
 
     /**

@@ -17,6 +17,8 @@ use Mms\Laravel\Eloquent\BaseModel;
 use Mms\Laravel\Eloquent\ModelManager;
 use Mms\Organizations\Eloquent\OrganizationInterface;
 use Mms\Organizations\Eloquent\YearInterface;
+use Mms\Organizations\Tree\Node as TreeNode;
+
 
 class OrganizationManager
 {
@@ -231,7 +233,51 @@ class OrganizationManager
     public function findRoot(OrganizationInterface $organization)
     {
         $queryBuilder = OrganizationHierarchy::roots();
-        $queryBuilder->where('organization_id', '=', $organization->id);
+        $queryBuilder->where('organization_id', '=', $organization->getIdentifier());
         return $queryBuilder->get()->first();
+    }
+
+    public function getOrganizationBranches(OrganizationInterface $organization)
+    {
+        $queryBuilder = $this->manager->createQueryBuilder(OrganizationHierarchy::class);
+        $queryBuilder->where('organization_id', '=', $organization->getIdentifier());
+        $branches = [];
+        foreach ($queryBuilder->get() as $setNode) {
+            /**
+             * @var OrganizationHierarchy $setNode
+             */
+            $branches[] = [
+                'node' => $this->buildRelationshipTree($setNode),
+                'path' => []
+            ];
+        };
+        return $branches;
+    }
+
+    public function processPrettyPrint(
+        TreeNode $tree,
+        $data,
+        $level,
+        $indent
+    ){
+        $data[] = str_repeat($indent, $level). $tree->getValue()->organization."";
+        foreach ($tree->getChildren() as $child) {
+            $data = $this->processPrettyPrint($child, $data, $level+1, $indent);
+        }
+        return $data;
+    }
+
+    public function prettyPrint(TreeNode $tree, $indent = null)
+    {
+        return $this->processPrettyPrint($tree, [], 0, $indent ?: '  ');
+    }
+
+    public function buildRelationshipTree(OrganizationHierarchy $setNode)
+    {
+        $tree = new TreeNode($setNode);
+        foreach ($setNode->children as $setChildNode) {
+            $tree->addChild($this->buildRelationshipTree($setChildNode));
+        }
+        return $tree;
     }
 }
