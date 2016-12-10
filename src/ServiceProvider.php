@@ -57,9 +57,9 @@ class ServiceProvider extends BaseServiceProvider
         });
         $this->commands('mms.organizations.init');
 
-        $this->app->singleton('mms.organizations.hierarchy', function(Container $app) {
-            return $app->make(Command\BuildOrganizationsHierarchyCommand::class);
+        $this->app->singleton('mms.organizations.relationship', function(Container $app) {
+            return $app->make(Command\BuildOrganizationsRelationshipCommand::class);
         });
-        $this->commands('mms.organizations.hierarchy');
+        $this->commands('mms.organizations.relationship');
     }
 }

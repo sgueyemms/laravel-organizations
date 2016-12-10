@@ -18,27 +18,63 @@ use Mms\Laravel\Eloquent\ModelManager;
 use Mms\Organizations\Eloquent\OrganizationInterface;
 use Mms\Organizations\Eloquent\YearInterface;
 use Mms\Organizations\Tree\Node as TreeNode;
+use Psr\Log\LoggerInterface;
 
 
 class OrganizationManager
 {
+    /**
+     * @var ModelManager
+     */
     private $manager;
+
+    /**
+     * @var string
+     */
     private $modelClass;
+
+    /**
+     * @var string
+     */
     private $typeClass;
+
+    /**
+     * @var array
+     */
     private $config;
+
+    /**
+     * @var array
+     */
     private $hierarchies;
+
+    /**
+     * @var array
+     */
     private $classIndexedConfig;
+
+    /**
+     * @var array
+     */
     private $organizationTypes = [];
 
     /**
-     * @var \SplObjectStorage
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    /**
+     * @var array
      */
     private $referenceStorage;
 
-
-
-    public function __construct(ModelManager $manager, $modelClass, $typeClass, array $config, array $hierarchies)
-    {
+    public function __construct(
+        ModelManager $manager,
+        $modelClass,
+        $typeClass,
+        array $config,
+        array $hierarchies
+    ){
         $this->manager            = $manager;
         $this->modelClass         = $modelClass;
         $this->typeClass          = $typeClass;
@@ -51,6 +87,29 @@ class OrganizationManager
         }
         $this->hierarchies = $hierarchies;
         $this->referenceStorage = [];
+    }
+
+    /**
+     * @param LoggerInterface $logger
+     * @return $this
+     */
+    public function setLogger(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
+        return $this;
+    }
+
+    /**
+     * @param $message
+     * @param array $context
+     * @return $this
+     */
+    private function log($message, array $context)
+    {
+        if($this->logger) {
+            $this->logger->debug($message, $context);
+        }
+        return $this;
     }
 
     /**
@@ -69,6 +128,10 @@ class OrganizationManager
         return $this->organizationTypes[$code];
     }
 
+    /**
+     * @param BaseModel $instance
+     * @return array
+     */
     private function getInstanceConfig(BaseModel $instance)
     {
         $class = $this->manager->getInstanceModelClass($instance);
@@ -86,6 +149,10 @@ class OrganizationManager
         return $this->config;
     }
 
+    /**
+     * @param $code
+     * @return mixed
+     */
     public function getModelClass($code)
     {
         if(!isset($this->config[$code])) {
@@ -149,6 +216,11 @@ class OrganizationManager
         }
         return $this->referenceStorage[$key];
     }
+
+    /**
+     * @param OrganizationInterface $organization
+     * @return $this
+     */
     public function loadReference(OrganizationInterface $organization)
     {
         if(!$organization->getReference()) {
@@ -173,15 +245,25 @@ class OrganizationManager
     /**
      * @param YearInterface $year
      * @param BaseModel $instance
-     * @return OrganizationInterface
+     * @return array
      */
-    public function findOrganization(YearInterface $year, BaseModel $instance)
+    public function getOrganizationFinderCriteria(YearInterface $year, BaseModel $instance)
     {
-        $criteria = [
+        return [
             'year_id' => $year->id,
             'reference_id' => $instance->id,
             'organization_type_id' => $this->getInstanceReferenceType($instance)->id
         ];
+    }
+
+    /**
+     * @param YearInterface $year
+     * @param BaseModel $instance
+     * @return OrganizationInterface
+     */
+    public function findOrganization(YearInterface $year, BaseModel $instance)
+    {
+        $criteria = $this->getOrganizationFinderCriteria($year, $instance);
         $organization = $this->manager->getModelRepository($this->modelClass)->findOneBy($criteria);
         if($organization) {
             $this->loadReference($organization);
@@ -199,16 +281,16 @@ class OrganizationManager
      */
     public function findOrganizationByCode(YearInterface $year, $code)
     {
-        $criteria = [
-            'year_id' => $year->id,
-            'reference_id' => $instance->id,
-            'organization_type_id' => $this->getInstanceReferenceType($instance)->id
-        ];
-        $queryBuilder = $this->manager->createQueryBuilder(Organization::class);
-        foreach ($this->config['models'] as $organizationTypeCode => $configEntry) {
-            $metadata = $this->manager->getModelMetadata($configEntry['model']);
-            //$queryBuilder->leftJoin()
-        }
+//        $criteria = [
+//            'year_id' => $year->id,
+//            'reference_id' => $instance->id,
+//            'organization_type_id' => $this->getInstanceReferenceType($instance)->id
+//        ];
+//        $queryBuilder = $this->manager->createQueryBuilder(Organization::class);
+//        foreach ($this->config['models'] as $organizationTypeCode => $configEntry) {
+//            $metadata = $this->manager->getModelMetadata($configEntry['model']);
+//            //$queryBuilder->leftJoin()
+//        }
         throw new \Exception("Not implemented yet");
     }
     public function has(BaseModel $instance)
@@ -231,6 +313,19 @@ class OrganizationManager
             foreach ($this->hierarchies[$configKey] as $relation) {
                 foreach ($organization->getReference()->getRelationValue($relation) as $childReference) {
                     $childOrganization = $this->findOrganization($organization->year, $childReference);
+                    if(!$childOrganization) {
+                        $tokens = [];
+                        $criteria = $this->getOrganizationFinderCriteria($organization->year, $childReference);
+                        foreach ($criteria as $key => $value) {
+                            $tokens[] = "$key = $value";
+                        }
+                        $message = sprintf(
+                            "Cannot find child organization using criteria %s",
+                            implode(', ', $tokens)
+                        );
+                        $this->log($message, []);
+                        continue;
+                    }
                     $childNode = $nodeBuilder($childOrganization);
                     //$childNode->makeChildOf($node);
                     $node->addChild($childNode);
@@ -243,7 +338,7 @@ class OrganizationManager
 
     public function buildHierarchy(OrganizationInterface $organization)
     {
-        $nodeBuilder = function ($organization) {
+        $nodeBuilder = function (OrganizationInterface $organization) {
             $node = new OrganizationRelationship();
             $node->organization_id = $organization->id;
             $node->save();
