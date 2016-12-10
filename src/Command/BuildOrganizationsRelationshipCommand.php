@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Mms\Laravel\Eloquent\ModelManager;
 use Mms\Organizations\OrganizationManager;
 
-class BuildOrganizationsHierarchyCommand extends Command
+class BuildOrganizationsRelationshipCommand extends Command
 {
     /**
      * @var ModelManager
@@ -36,14 +36,14 @@ class BuildOrganizationsHierarchyCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'mms:organizations:hierarchy {year} {type?} {--opt1=} {--limit=}';
+    protected $signature = 'mms:organizations:relationship {year} {type?} {--opt1=} {--limit=}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Builds organizations hierarchy';
+    protected $description = 'Builds organizations relationship';
 
     /**
      * Execute the console command.
@@ -78,7 +78,7 @@ class BuildOrganizationsHierarchyCommand extends Command
                     if ($rootNode) {
                         $this->warn("Hierarchy for '$organization' already exists'");
                     } else {
-                        $this->info("Building hierarchy for '$organization'");
+                        $this->info("Building relationship for '$organization'");
                         $rootNode = $this->organizationManager->buildHierarchy($organization);
                         if($limit && ($count++ >= $limit))
                         {
