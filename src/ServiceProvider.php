@@ -43,7 +43,7 @@ class ServiceProvider extends BaseServiceProvider
                 $app['config']->get('mms_organizations.model_class'),
                 $app['config']->get('mms_organizations.model_type_class'),
                 $app['config']->get('mms_organizations.models'),
-                $app['config']->get('mms_organizations.hierarchies')
+                $app['config']->get('mms_organizations.relationships')
             );
         }));
 
