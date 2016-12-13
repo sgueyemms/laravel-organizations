@@ -55,7 +55,8 @@ class ServiceProvider extends BaseServiceProvider
                 $app->make(ToArrayVisitor::class)
             );
         });
-        //This seems to be unecessary if the class constructor is type-hintable
+        //This is not its place as the admin package depends on that one
+        //Make the admin grid extension take resolvers and create the resolvers in the application code
         $this->app->tag(OrganizationRelationshipType::class, ['admin.grid_type']);
 
         $this->registerCommands();
