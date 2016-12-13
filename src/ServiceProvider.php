@@ -5,6 +5,8 @@ namespace Mms\Organizations;
 use Illuminate\Container\Container;
 use Illuminate\Support\ServiceProvider as BaseServiceProvider;
 use Mms\Laravel\Eloquent\ModelManager;
+use Mms\Organizations\PrezentGrid\Type\OrganizationRelationshipType;
+use Mms\Organizations\Tree\ToArrayVisitor;
 
 /**
  * Description of ServiceProvider
@@ -46,6 +48,15 @@ class ServiceProvider extends BaseServiceProvider
                 $app['config']->get('mms_organizations.relationships')
             );
         }));
+
+        $this->app->bind(OrganizationRelationshipType::class, function(Container $app) {
+            return new OrganizationRelationshipType(
+                $app->make(OrganizationManager::class),
+                $app->make(ToArrayVisitor::class)
+            );
+        });
+        //This seems to be unecessary if the class constructor is type-hintable
+        $this->app->tag(OrganizationRelationshipType::class, ['admin.grid_type']);
 
         $this->registerCommands();
 
