@@ -14,19 +14,25 @@ use Tree\Node\NodeInterface;
 
 class ArrayGenerator
 {
+
+    protected function generateExtra(NodeInterface $node)
+    {
+        return [];
+    }
     public function generate(NodeInterface $node)
     {
         /**
          * @var Node $node
          */
-        return [
-            'name' => $node->getValue()->organization."",
-            'id' => $node->getValue()->id,
-            'is_leaf' => $node->isLeaf(),
-            'organization_id' => $node->getValue()->organization->id,
-            'organization_type_id' => $node->getValue()->organization->organization_type_id,
-            'children' => []
-        ];
+        return array_merge(
+            [
+                'name' => $node->getValue()."",
+                'id' => $node->getValue()->id,
+                'is_leaf' => $node->isLeaf(),
+                'children' => []
+            ],
+            $this->generateExtra($node)
+        );
     }
 
     public function __invoke(NodeInterface $node)

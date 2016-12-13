@@ -12,7 +12,12 @@ use App\Models\Year;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Mms\Laravel\Eloquent\ModelManager;
+use Mms\Organizations\Eloquent\YearInterface;
 use Mms\Organizations\OrganizationManager;
+use Mms\Organizations\Tree\ArrayGenerator;
+use Mms\Organizations\Tree\Generator\EditorGenerator;
+use Mms\Organizations\Tree\NestedSet\Generator;
+use Mms\Organizations\Tree\ToArrayVisitor;
 
 class BuildOrganizationsRelationshipCommand extends Command
 {
@@ -50,6 +55,81 @@ class BuildOrganizationsRelationshipCommand extends Command
      *
      */
     public function handle()
+    {
+        //Illuminate\Database\DatabaseManager
+        //pyk_die(get_class($this->laravel['db']));
+        $models = $this->organizationManager->getConfiguration();
+        $yearArgument = $this->input->getArgument('year');
+        $yearRecords = [];
+        if($yearArgument and !in_array($yearArgument, ['_'])) {
+            foreach (explode(',', $yearArgument) as $yearCode) {
+                $yearRecords[] = $this->manager->getModelRepository(Year::class)
+                    ->findByCode($yearCode);
+            }
+        } else {
+            $yearRecords = $this->manager->getModelRepository(Year::class)->findAll();
+        }
+        foreach ($yearRecords as $year) {
+            /**
+             * @var YearInterface $year
+             */
+            $arguments = $this->input->getArgument('type');
+            if (!$arguments || $arguments == '_') {
+                $codes = array_keys($models);
+            } else {
+                $codes = array_map('trim', explode(',', $arguments));
+            }
+            $nestedSetVisitor = new ToArrayVisitor(new Generator());
+            $hierarchyVisitor = new ToArrayVisitor(new EditorGenerator());
+            foreach ($codes as $code) {
+                $modelClass = $this->organizationManager->getModelClass($code);
+                $limit = $this->input->getOption('limit') ?: 0;
+                $count = 1;
+                foreach ($this->manager->getModelRepository($modelClass)->findAll() as $instance) {
+                    //Put each tree in a transaction
+                    DB::beginTransaction();
+                    try {
+                        $organization = $this->organizationManager->findOrganization($year, $instance);
+                        if (!$organization) {
+                            throw new \RuntimeException(sprintf(
+                                "No organization found for the year '%s' and the model '%s'",
+                                $year, $instance
+                            ));
+                        }
+                        $rootNode = $this->organizationManager->findRoot($organization);
+                        if ($rootNode) {
+                            $this->warn("Hierarchy for '$organization' already exists'");
+                        } else {
+                            $this->info("Building relationship for '$organization'");
+                            $rootNode = $this->organizationManager->buildRelationshipInitializerTree($organization);
+                            //pyk_printd($rootNode->accept($nestedSetVisitor));
+                            $hierarchyRootNode = $this->organizationManager->persistRelationshipTree(
+                                $rootNode,
+                                $this->laravel['db']->connection()
+                            );
+                            //pyk_printd($rootNode->accept($nestedSetVisitor));
+                            //pyk_printd($hierarchyRootNode->accept($hierarchyVisitor));
+                            if ($limit && ($count++ >= $limit)) {
+                                DB::commit();
+                                break;
+                            }
+                        }
+                    } catch (\Exception $exception) {
+                        DB::rollBack();
+                        throw $exception;
+                    }
+                    DB::commit();
+                    //break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Execute the console command.
+     *
+     */
+    public function handleOLD()
     {
         $models = $this->organizationManager->getConfiguration();
         $year = $this->manager->getModelRepository(Year::class)->findByCode($this->input->getArgument('year'));

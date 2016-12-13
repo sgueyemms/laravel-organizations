@@ -12,13 +12,20 @@ namespace Mms\Organizations;
 use App\Models\Organization;
 use App\Models\OrganizationRelationship;
 use App\Models\OrganizationType;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Facades\DB;
 use Mms\Laravel\Eloquent\BaseModel;
 use Mms\Laravel\Eloquent\ModelManager;
 use Mms\Organizations\Eloquent\OrganizationInterface;
 use Mms\Organizations\Eloquent\YearInterface;
+use Mms\Organizations\Tree\NestedSet\ModifiedPreOrderTraversal;
 use Mms\Organizations\Tree\Node as TreeNode;
 use Psr\Log\LoggerInterface;
+use Mms\Organizations\Tree\NestedSet\NodeInterface as NestedSetNodeInterface;
+use Mms\Organizations\Tree\NestedSet\Node as NestedSetNode;
+use \Illuminate\Database\Connection;
 
 
 class OrganizationManager
@@ -300,12 +307,15 @@ class OrganizationManager
         $finderQuery = $this->manager->getModelRepository($this->modelClass)->get;
     }
 
-    /**
-     * @param OrganizationRelationship $node
-     * @param OrganizationInterface|Model $organization
-     */
-    private function processHierarchy(OrganizationRelationship $node, OrganizationInterface $organization, $nodeBuilder)
+    public function buildRelationshipInitializerTree(OrganizationInterface $organization)
     {
+        /**
+         * @var Organization $organization
+         */
+        //Create a node for this organization
+        $node = new NestedSetNode($organization);
+        //Find organizations that are part of its hierarchy and add them
+
         $this->loadReference($organization);
         $config = $this->getInstanceConfig($organization->getReference());
         $configKey = $config['code'];
@@ -326,17 +336,62 @@ class OrganizationManager
                         $this->log($message, []);
                         continue;
                     }
-                    $childNode = $nodeBuilder($childOrganization);
+                    $childNode = $this->buildRelationshipInitializerTree($childOrganization);
                     //$childNode->makeChildOf($node);
                     $node->addChild($childNode);
-                    $childNode->save();
-                    $this->processHierarchy($childNode, $childOrganization, $nodeBuilder);
                 }
             }
         }
+        return $node;
     }
 
-    public function buildHierarchy(OrganizationInterface $organization)
+    private function persistRelationshipNode(NestedSetNodeInterface $node, $table, $rootId = 0)
+    {
+        /**
+         * @var Builder $table
+         */
+        $date = new \DateTime();
+        $data = [
+            'parent_id' => $node->isRoot() ? null : $node->getParent()->getIdentifier(),
+            'root_id' => $rootId,
+            'lft' => $node->getLeftValue(),
+            'rgt' => $node->getRightValue(),
+            'depth' => $node->getLevel(),
+            'created_at' => $date,
+            'updated_at' => $date,
+            'organization_id' => $node->getValue()->id
+        ];
+        $id = $table->insertGetId($data);
+        $node->setIdentifier($id);
+        if($node->isRoot()) {
+            $updater = clone $table;
+            $rootId = $id;
+            $updater->where('id', '=', $rootId)->update(['root_id' => $rootId]);
+        }
+        foreach ($node->getChildren() as $childNode) {
+            /**
+             * @var NestedSetNodeInterface $childNode
+             */
+            $this->persistRelationshipNode($childNode, $table, $rootId);
+        }
+        return $node;
+    }
+
+    /**
+     * @param NestedSetNodeInterface $rootNode
+     * @return OrganizationRelationship
+     */
+    public function persistRelationshipTree(NestedSetNodeInterface $rootNode, Connection $database)
+    {
+        $table = $database->table($this->manager->getModelMetadata(OrganizationRelationship::class)->table);
+        $traversal = new ModifiedPreOrderTraversal();
+        $traversal->run($rootNode);
+        $this->persistRelationshipNode($rootNode, $table);
+        return $this->manager->getModelRepository(OrganizationRelationship::class)
+            ->find($rootNode->getIdentifier());
+    }
+
+    public function buildHierarchyOLD(OrganizationInterface $organization)
     {
         $nodeBuilder = function (OrganizationInterface $organization) {
             $node = new OrganizationRelationship();
