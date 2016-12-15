@@ -377,6 +377,19 @@ class OrganizationManager
         return $node;
     }
 
+
+    /**
+     * @param NestedSetNodeInterface $rootNode
+     * @return NestedSetNodeInterface
+     */
+    public function processRelationshipTree(NestedSetNodeInterface $rootNode)
+    {
+        $traversal = new ModifiedPreOrderTraversal();
+        $traversal->run($rootNode);
+        return $rootNode;
+    }
+
+
     /**
      * @param NestedSetNodeInterface $rootNode
      * @return OrganizationRelationship
@@ -384,9 +397,7 @@ class OrganizationManager
     public function persistRelationshipTree(NestedSetNodeInterface $rootNode, Connection $database)
     {
         $table = $database->table($this->manager->getModelMetadata(OrganizationRelationship::class)->table);
-        $traversal = new ModifiedPreOrderTraversal();
-        $traversal->run($rootNode);
-        $this->persistRelationshipNode($rootNode, $table);
+        $this->persistRelationshipNode($this->processRelationshipTree($rootNode), $table);
         return $this->manager->getModelRepository(OrganizationRelationship::class)
             ->find($rootNode->getIdentifier());
     }
@@ -410,6 +421,17 @@ class OrganizationManager
         return $queryBuilder->get()->first();
     }
 
+
+    public function buildRelationshipTree(OrganizationRelationship $setNode)
+    {
+        $tree = new TreeNode($setNode);
+        foreach ($setNode->children as $setChildNode) {
+            //pyk_die();
+            $tree->addChild($this->buildRelationshipTree($setChildNode));
+        }
+        return $tree;
+    }
+
     public function getOrganizationBranches(OrganizationInterface $organization)
     {
         $queryBuilder = $this->manager->createQueryBuilder(OrganizationRelationship::class);
@@ -419,12 +441,14 @@ class OrganizationManager
             /**
              * @var OrganizationRelationship $setNode
              */
+            $tree = $this->buildRelationshipTree($setNode);
+            $path = array_map(
+                function($node) { return $node->organization->getExtendedLabel(); },
+                $setNode->getAncestors()->all()
+            );
             $branches[] = [
-                'node' => $this->buildRelationshipTree($setNode),
-                'path' => array_map(
-                    function($node) { return $node->organization->getExtendedLabel(); },
-                    $setNode->getAncestors()->all()
-                )
+                'node' => $tree,
+                'path' => $path
             ];
         };
         return $branches;
@@ -446,14 +470,5 @@ class OrganizationManager
     public function prettyPrint(TreeNode $tree, $indent = null)
     {
         return $this->processPrettyPrint($tree, [], 0, $indent ?: '  ');
-    }
-
-    public function buildRelationshipTree(OrganizationRelationship $setNode)
-    {
-        $tree = new TreeNode($setNode);
-        foreach ($setNode->children as $setChildNode) {
-            $tree->addChild($this->buildRelationshipTree($setChildNode));
-        }
-        return $tree;
     }
 }

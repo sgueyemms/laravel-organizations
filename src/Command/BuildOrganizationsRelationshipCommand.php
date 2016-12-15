@@ -82,6 +82,7 @@ class BuildOrganizationsRelationshipCommand extends Command
             $nestedSetVisitor = new ToArrayVisitor(new Generator());
             $hierarchyVisitor = new ToArrayVisitor(new EditorGenerator());
             foreach ($codes as $code) {
+                $this->info("Building relationships for the year $year and $code references");
                 $modelClass = $this->organizationManager->getModelClass($code);
                 $limit = $this->input->getOption('limit') ?: 0;
                 $count = 1;
@@ -102,13 +103,10 @@ class BuildOrganizationsRelationshipCommand extends Command
                         } else {
                             $this->info("Building relationship for '$organization'");
                             $rootNode = $this->organizationManager->buildRelationshipInitializerTree($organization);
-                            //pyk_printd($rootNode->accept($nestedSetVisitor));
-                            $hierarchyRootNode = $this->organizationManager->persistRelationshipTree(
+                            $this->organizationManager->persistRelationshipTree(
                                 $rootNode,
                                 $this->laravel['db']->connection()
                             );
-                            //pyk_printd($rootNode->accept($nestedSetVisitor));
-                            //pyk_printd($hierarchyRootNode->accept($hierarchyVisitor));
                             if ($limit && ($count++ >= $limit)) {
                                 DB::commit();
                                 break;
@@ -121,56 +119,6 @@ class BuildOrganizationsRelationshipCommand extends Command
                     DB::commit();
                     //break;
                 }
-            }
-        }
-    }
-
-    /**
-     * Execute the console command.
-     *
-     */
-    public function handleOLD()
-    {
-        $models = $this->organizationManager->getConfiguration();
-        $year = $this->manager->getModelRepository(Year::class)->findByCode($this->input->getArgument('year'));
-        $arguments = $this->input->getArgument('type');
-        if(!$arguments || $arguments == '_') {
-            $codes = array_keys($models);
-        } else {
-            $codes = array_map('trim', explode(',', $arguments));
-        }
-        foreach ($codes as $code) {
-            $modelClass = $this->organizationManager->getModelClass($code);
-            $limit = $this->input->getOption('limit') ?: 0;
-            $count = 1;
-            foreach ($this->manager->getModelRepository($modelClass)->findAll() as $instance) {
-                //Put each tree in a transaction
-                DB::beginTransaction();
-                try {
-                    $organization = $this->organizationManager->findOrganization($year, $instance);
-                    if (!$organization) {
-                        throw new \RuntimeException(sprintf(
-                            "No organization found for the year '%s' and the model '%s'",
-                            $year, $instance
-                        ));
-                    }
-                    $rootNode = $this->organizationManager->findRoot($organization);
-                    if ($rootNode) {
-                        $this->warn("Hierarchy for '$organization' already exists'");
-                    } else {
-                        $this->info("Building relationship for '$organization'");
-                        $rootNode = $this->organizationManager->buildHierarchy($organization);
-                        if($limit && ($count++ >= $limit))
-                        {
-                            break;
-                        }
-                        //break;
-                    }
-                }  catch (\Exception $exception) {
-                    DB::rollBack();
-                    throw $exception;
-                }
-                DB::commit();
             }
         }
     }

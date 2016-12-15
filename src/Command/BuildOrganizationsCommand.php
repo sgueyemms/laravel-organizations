@@ -23,6 +23,7 @@ use ICanBoogie\Inflector;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Mms\Acl\AclLoader;
 use Mms\Acl\EloquentDomainObject;
 use Mms\Acl\ObjectIdentityRetrievalStrategy;
@@ -33,6 +34,7 @@ use Faker\Factory as FakerFactory;
 use Mms\Laravel\Eloquent\BlameableUser;
 use Mms\Laravel\Eloquent\ModelManager;
 use Mms\MultiTenancy\Tenant\RequestTenantProvider;
+use Mms\Organizations\Eloquent\YearInterface;
 use Mms\Organizations\OrganizationManager;
 use Symfony\Component\Security\Acl\Permission\MaskBuilder;
 use Symfony\Component\Security\Acl\Domain\ObjectIdentity;
@@ -77,7 +79,11 @@ class BuildOrganizationsCommand extends Command
     public function handle()
     {
         $models = $this->organizationManager->getConfiguration();
-        $year = $this->manager->getModelRepository(Year::class)->findByCode($this->input->getArgument('year'));
+        /**
+         * @var YearInterface $year
+         */
+        $year = $this->manager->getModelRepository(Year::class)
+            ->findByCode($this->input->getArgument('year'));
         $arguments = $this->input->getArgument('type');
         if(!$arguments || $arguments == '_') {
             $codes = array_keys($models);
@@ -86,8 +92,21 @@ class BuildOrganizationsCommand extends Command
         }
         foreach ($codes as $code) {
             $modelClass = $this->organizationManager->getModelClass($code);
-            foreach ($this->manager->getModelRepository($modelClass)->findAll() as $instance) {
-                $this->organizationManager->create($year, $instance);
+            $references = $this->manager->getModelRepository($modelClass)->findAll();
+            $this->info(sprintf(
+                "Generating organizations for '%s' (%s references)",
+                $code,
+                count($references)
+            ));
+            try {
+                DB::beginTransaction();
+                foreach ($references as $instance) {
+                    $this->organizationManager->create($year, $instance);
+                }
+                DB::commit();
+            } catch (\Exception $exception) {
+                DB::rollBack();
+                throw $exception;
             }
         }
     }
