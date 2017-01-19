@@ -39,6 +39,19 @@ class ServiceProvider extends BaseServiceProvider
             __DIR__.'/../config/config.php', 'mms_organizations'
         );
 
+        $this->app->bind(YearManager::class, $this->app->share(function (Container $app) {
+            return new YearManager(
+                $app->make(ModelManager::class)->getModelRepository('App\Models\Year'),
+                '2016-2017'
+            );
+        }));
+
+        $this->app->bind(OrganizationReferenceManager::class, $this->app->share(function (Container $app) {
+            return new OrganizationReferenceManager(
+                $app->make(ModelManager::class)->getModelRepository('App\Models\OrganizationRelationship')
+            );
+        }));
+
         $this->app->bind(OrganizationManager::class, $this->app->share(function (Container $app) {
             return new OrganizationManager(
                 $app->make(ModelManager::class),

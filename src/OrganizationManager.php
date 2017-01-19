@@ -12,10 +12,8 @@ namespace Mms\Organizations;
 use App\Models\Organization;
 use App\Models\OrganizationRelationship;
 use App\Models\OrganizationType;
-use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Support\Facades\DB;
 use Mms\Laravel\Eloquent\BaseModel;
 use Mms\Laravel\Eloquent\ModelManager;
 use Mms\Organizations\Eloquent\OrganizationInterface;
@@ -400,18 +398,6 @@ class OrganizationManager
         $this->persistRelationshipNode($this->processRelationshipTree($rootNode), $table);
         return $this->manager->getModelRepository(OrganizationRelationship::class)
             ->find($rootNode->getIdentifier());
-    }
-
-    public function buildHierarchyOLD(OrganizationInterface $organization)
-    {
-        $nodeBuilder = function (OrganizationInterface $organization) {
-            $node = new OrganizationRelationship();
-            $node->organization_id = $organization->id;
-            $node->save();
-            return $node;
-        };
-        $root = $nodeBuilder($organization);
-        $this->processHierarchy($root, $organization, $nodeBuilder);
     }
 
     public function findRoot(OrganizationInterface $organization)
