@@ -5,6 +5,9 @@ namespace Mms\Organizations;
 use Illuminate\Container\Container;
 use Illuminate\Support\ServiceProvider as BaseServiceProvider;
 use Mms\Laravel\Eloquent\ModelManager;
+use Mms\Organizations\Eloquent\Filter\OrganizationListFilter;
+use Mms\Organizations\Eloquent\Filter\OrganizationRelationshipFilter;
+use Mms\Organizations\Eloquent\OrganizationAccessManager;
 use Mms\Organizations\PrezentGrid\Type\OrganizationRelationshipType;
 use Mms\Organizations\Tree\ToArrayVisitor;
 
@@ -71,6 +74,20 @@ class ServiceProvider extends BaseServiceProvider
         //This is not its place as the admin package depends on that one
         //Make the admin grid extension take resolvers and create the resolvers in the application code
         $this->app->tag(OrganizationRelationshipType::class, ['admin.grid_type']);
+
+        $this->app->bind(OrganizationRelationshipFilter::class, $this->app->share(function (Container $app) {
+            return new OrganizationRelationshipFilter(
+                $app->make(ModelManager::class)->getModelInstance('App\Models\OrganizationRelationship')
+            );
+        }));
+
+        $this->app->bind(OrganizationAccessManager::class, $this->app->share(function (Container $app) {
+            return new OrganizationAccessManager(
+                $app->make(OrganizationRelationshipFilter::class),
+                $app->make(ModelManager::class),
+                'App\Models\Organization'
+            );
+        }));
 
         $this->registerCommands();
 

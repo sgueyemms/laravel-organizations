@@ -13,7 +13,11 @@ use App\Models\OrganizationRelationship;
 use Baum\Node as BaumNestedSetNode;
 use Mms\Admin\Datagrid\ProxyQuery;
 
-class ListFilter
+/**
+ * Class OrganizationRelationshipFilter This class is a helper for other filter classes
+ * @package Mms\Organizations\Eloquent\Filter
+ */
+class OrganizationRelationshipFilter
 {
     /**
      * @var BaumNestedSetNode[]
@@ -21,52 +25,50 @@ class ListFilter
     private $organizationNodes;
 
     /**
-     * @var OrganizationRelationship
+     * @var BaumNestedSetNode
      */
     private $nodeInstance;
 
     /**
-     * @var string
+     * OrganizationFilter constructor.
+     * @param BaumNestedSetNode $nodeInstance
      */
-    private $alias;
-    public function __construct(array $organizationNodes, $alias)
+    public function __construct(BaumNestedSetNode $nodeInstance)
     {
-        $this->organizationNodes = $organizationNodes;
-        $this->nodeInstance      = new OrganizationRelationship();
-        $this->alias             = $alias;
+        $this->nodeInstance = $nodeInstance;
     }
 
     /**
      * @param $proxyQuery
      */
-    public function __invoke($proxyQuery)
+    public function __invoke($proxyQuery, array $organizationNodes, $alias)
     {
-        $this->apply($proxyQuery);
+        $this->apply($proxyQuery, $organizationNodes, $alias);
     }
 
     /**
      * @param ProxyQuery $proxyQuery
      */
-    public function apply($proxyQuery)
+    public function apply($proxyQuery, array $organizationNodes, $baseAlias)
     {
         $alias = 'child_relationship';
         $proxyQuery->join(
             $this->nodeInstance->getTable()." AS $alias",
             "$alias.organization_id",
             '=',
-            $this->alias.'.id'
+            $baseAlias.'.id'
         );
         $conditions = [];
         $bindings = [];
         $baseParameterName = $alias.'__';
         $counter = 0;
-        foreach ($this->organizationNodes as $node) {
+        foreach ($organizationNodes as $node) {
             $counter++;
             $rootParameterName = $baseParameterName."root_".$counter;
             $leftParameterName = $baseParameterName."left_".$counter;
             $rightParameterName = $baseParameterName."right_".$counter;
             $conditions[] = sprintf(
-                "($alias.root_id = :%s AND $alias.%s >= :%s AND $alias.%s < :%s)",
+                "($alias.root_id = :%s AND $alias.%s >= :%s AND $alias.%s <= :%s)",
                 $rootParameterName,
                 $this->nodeInstance->getLeftColumnName(),
                 $leftParameterName,
